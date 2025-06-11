@@ -1,0 +1,89 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Django specific
+*.log
+*.pot
+*.pyc
+*.sqlite3
+*.db
+*.db-journal
+
+# Environment
+.env
+.env.*
+*.env
+.venv/
+venv/
+ENV/
+env.bak/
+pip-log.txt
+Pipfile.lock
+poetry.lock
+
+# IDEs/editors
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Migrations (optional, only if you recreate them often)
+# Comment out if you want migrations tracked.
+**/migrations/
+!**/migrations/__init__.py
+
+# Static/media (optional – if served by cloud/CDN or built separately)
+staticfiles/
+static/
+media/
+
+# Compiled JS/CSS from frontend tools
+node_modules/
+dist/
+build/
+*.map
+
+# Test/coverage
+htmlcov/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+
+# Docker
+*.pid
+*.pid.lock
+
+# VS Code launch configs
+.vscode/
+
+# JetBrains IDEs
+.idea/
+
+# MyPy
+.mypy_cache/
+
+# Celery beat schedule files
+celerybeat-schedule
+celerybeat.pid
+
+# Gunicorn/PID logs
+gunicorn.pid
+
+# Local backups
+*.bak
+*.tmp
+
+# System files
+*.swp
