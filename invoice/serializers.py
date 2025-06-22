@@ -22,10 +22,15 @@ class InvoiceSerializer(serializers.ModelSerializer):
         read_only_fields = ['invoice_number', 'subtotal', 'vat', 'wht', 'total_due', 'created_at', 'updated_at']
 
     def create(self, validated_data):
+        collection = validated_data.get('collection')
         invoice = Invoice.objects.create(**validated_data)
-        invoice.calculate_totals()  # Make sure totals are calculated on creation
-        return invoice
 
+        if collection:
+            invoice.copy_collection_items()
+            invoice.calculate_totals()
+
+        return invoice
+   
     def update(self, instance, validated_data):
         # allow partial update and recalc totals if necessary
         for attr, value in validated_data.items():

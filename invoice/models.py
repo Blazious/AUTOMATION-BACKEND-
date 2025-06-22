@@ -1,9 +1,12 @@
 from django.db import models
 from django.conf import settings
-from client.models import Client
-from collection_service.models import Collection, CollectionItem
 from django.utils.timezone import now
 from decimal import Decimal
+
+from client.models import Client
+from collection_service.models import Collection, CollectionItem
+from expenses.models import Expense  # ensure this model exists and is correct
+
 
 class Invoice(models.Model):
     STATUS_CHOICES = [
@@ -35,13 +38,20 @@ class Invoice(models.Model):
         return self.invoice_number or "Invoice (unsaved)"
 
     def save(self, *args, **kwargs):
+        is_new = self._state.adding
+
         if not self.invoice_number:
             self.invoice_number = self.generate_invoice_number()
+
+        # First save to get a primary key
         super().save(*args, **kwargs)
-        # After saving invoice, if collection is linked and no items yet, copy collection items
-        if self.collection and not self.items.exists():
+
+        # Only copy items once for a new invoice with a collection
+        if is_new and self.collection and not self.items.exists():
             self.copy_collection_items()
-            self.calculate_totals()
+
+        # Calculate totals once items are copied
+        self.calculate_totals()
 
     def generate_invoice_number(self):
         year = now().year
@@ -55,37 +65,62 @@ class Invoice(models.Model):
         return f"{prefix}-{new_number:03d}"
 
     def copy_collection_items(self):
-        # copy each CollectionItem as an InvoiceItem
+        if not self.collection:
+            return
+
         collection_items = CollectionItem.objects.filter(collection=self.collection)
         invoice_items = []
+
         for item in collection_items:
-            invoice_items.append(InvoiceItem(
+            # Avoid duplicate entries by checking if a similar item already exists
+            if not InvoiceItem.objects.filter(
                 invoice=self,
                 description=item.get_waste_category_display(),
                 quantity=item.quantity,
                 unit=item.unit,
                 unit_price=item.unit_price,
-                amount=item.quantity * item.unit_price,
-            ))
+            ).exists():
+                invoice_items.append(InvoiceItem(
+                    invoice=self,
+                    description=item.get_waste_category_display(),
+                    quantity=item.quantity,
+                    unit=item.unit,
+                    unit_price=item.unit_price,
+                    amount=item.quantity * item.unit_price,
+                ))
+
         InvoiceItem.objects.bulk_create(invoice_items)
 
     def calculate_totals(self):
-        self.subtotal = sum(item.amount for item in self.items.all())
-        self.vat = self.subtotal *  Decimal('0.16') # 16% VAT
-        self.wht = self.subtotal *  Decimal('0.02') # 2% WHT
-        self.total_due = self.subtotal + self.vat - self.wht
-        super().save(update_fields=['subtotal', 'vat', 'wht', 'total_due'])
+        subtotal = Decimal('0.00')
 
+        if self.items.exists():
+            subtotal = sum(item.amount for item in self.items.all())
+        elif self.collection:
+            subtotal = sum(item.quantity * item.unit_price for item in self.collection.items.all())
+
+        vat = subtotal * Decimal('0.16')  # 16% VAT
+        wht = subtotal * Decimal('0.02')  # 2% WHT
+
+        total_expenses = sum(exp.amount for exp in self.collection.expenses.all()) if self.collection else Decimal('0.00')
+
+        self.subtotal = subtotal
+        self.vat = vat
+        self.wht = wht
+        self.total_due = subtotal + vat - wht - total_expenses
+
+        # Save totals only
+        super().save(update_fields=['subtotal', 'vat', 'wht', 'total_due'])
 
     @property
     def total_paid(self):
-        from receipt.models import Receipt  # import here to avoid circular import
+        from receipt.models import Receipt
         return sum(receipt.amount for receipt in self.receipts.all())
 
     @property
     def balance_due(self):
         return max(Decimal('0.00'), self.total_due - self.total_paid)
- 
+
     @property
     def is_fully_paid(self):
         return self.balance_due <= Decimal('0.00')
@@ -105,3 +140,4 @@ class InvoiceItem(models.Model):
 
     def __str__(self):
         return f"{self.description} - {self.amount}"
+

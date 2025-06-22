@@ -26,10 +26,11 @@ urlpatterns = [
     path('api-auth/', include('rest_framework.urls')),  # Optional for session login
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),  # ✅ Get access + refresh
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),  # ✅ Refresh token
-    path('', include('client.urls')),  # Your app
+    path('', include('client.urls')),
     path('', include('collection_service.urls')),
     path('api/', include('invoice.urls')),
     path('api/', include('receipt.urls')),
     path('api/analytics/', include('analytics.urls')),
+    path('api/users/', include('users.urls')), 
 
 ]
